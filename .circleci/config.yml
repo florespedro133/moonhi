@@ -5,8 +5,12 @@ orbs:
 executors:
   node-executor:
     docker:
-      - image: cimg/node:18 # Imagen actualizada
+      - image: cimg/node:18
     working_directory: ~/project
+
+  docker-executor:
+    docker:
+      - image: cimg/base:stable
 
 jobs:
   test-node:
@@ -27,9 +31,7 @@ jobs:
           path: ./test-results/
 
   docker-build-and-test:
-    executor:
-      docker:
-        - image: cimg/base:stable
+    executor: docker-executor
     steps:
       - checkout
       - setup_remote_docker
