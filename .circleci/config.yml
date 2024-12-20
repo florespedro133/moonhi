@@ -17,8 +17,30 @@ jobs:
       - run:
           name: Run Tests
           command: npm test
+docker-build-and-test:
+  executor: docker-executor
+  steps:
+    - checkout
+    - setup_remote_docker
+    - run:
+        name: Build Docker Image
+        command: docker-compose -f docker-compose.yml build
+    - run:
+        name: Run Tests in Docker
+        command: |
+          docker-compose -f docker-compose.yml up -d
+          sleep 10
+          docker exec $(docker ps -qf "name=app") npm test
+    - run:
+        name: Clean Up Docker
+        command: docker-compose down && docker system prune -af
+    - store_artifacts:
+        path: ./logs/
 
 workflows:
   build-and-test:
     jobs:
       - test-node
+      - docker-build-and-test:
+          requires:
+            - test-node
