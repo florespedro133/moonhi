@@ -37,6 +37,7 @@ jobs:
       - run:
           name: Build Docker Image
           command: |
+            cd Dockerfiles && \
             docker-compose build
       - run:
           name: Run Integration Tests
