@@ -3,18 +3,10 @@ const app = require("../app");
 const { setCache, getCache } = require("../src/services/redisService");
 const Log = require("../src/models/logModel");
 
-
-jest.mock("../src/services/redisService", () => ({
-  getCache: jest.fn().mockResolvedValue(5),
-  setCache: jest.fn().mockResolvedValue(true),
-}));
-
-jest.mock("../src/models/logModel", () => ({
-  save: jest.fn().mockResolvedValue(true),
-}));
+jest.mock("../src/services/redisService");
+jest.mock("../src/models/logModel");
 
 describe("Calculator Controller", () => {
-
   describe("POST /calculate", () => {
     it("should return correct result for addition", async () => {
       const response = await request(app)
@@ -37,7 +29,6 @@ describe("Calculator Controller", () => {
     });
   });
 
-
   it("should handle division by zero", async () => {
     const response = await request(app)
       .post("/api/calculator")
@@ -47,7 +38,6 @@ describe("Calculator Controller", () => {
     expect(response.body.status).toBe("error");
     expect(response.body.message).toBe("Division by zero");
   });
-
 
   it("should return an error for an invalid operation", async () => {
     const response = await request(app)
@@ -61,7 +51,6 @@ describe("Calculator Controller", () => {
     );
   });
 
-
   it("should return an error for invalid numbers", async () => {
     const response = await request(app)
       .post("/api/calculator")
@@ -74,7 +63,6 @@ describe("Calculator Controller", () => {
 
 
   it("should return cached result", async () => {
-
     getCache.mockResolvedValueOnce(5);
 
     const response = await request(app)
@@ -85,7 +73,6 @@ describe("Calculator Controller", () => {
     expect(response.body.status).toBe("success");
     expect(response.body.result).toBe(5);
   });
-
 
   it("should log the operation in MongoDB", async () => {
     Log.mockImplementationOnce(() => ({
@@ -99,8 +86,8 @@ describe("Calculator Controller", () => {
     expect(Log).toHaveBeenCalled();
     expect(response.status).toBe(200);
   });
+});
 
-  afterAll(async () => {
-    await app.close();
-  });
+afterEach(() => {
+  jest.clearAllMocks();
 });
