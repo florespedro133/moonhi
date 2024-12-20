@@ -1,4 +1,5 @@
 version: 2.1
+
 executors:
   node-executor:
     docker:
@@ -6,41 +7,53 @@ executors:
     working_directory: ~/project
 
 jobs:
-  test-node:
+  setup:
     executor: node-executor
     steps:
-      - setup_remote_docker
       - checkout
       - run:
           name: Install Dependencies
           command: npm install
-      - run:
-          name: Run Tests
-          command: npm test
-  docker-build-and-test:
-    executor: docker-executor
+      - persist_to_workspace:
+          root: ~/project
+          paths:
+            - .
+
+  test:
+    executor: node-executor
     steps:
-      - checkout
+      - attach_workspace:
+          at: ~/project
+      - run:
+          name: Run Unit Tests
+          command: npm test
+
+  docker_build_and_test:
+    docker:
+      - image: docker:20.10.24
+    steps:
       - setup_remote_docker
+      - checkout
       - run:
           name: Build Docker Image
-          command: docker-compose -f docker-compose.yml build
-      - run:
-          name: Run Tests in Docker
           command: |
-            docker-compose -f docker-compose.yml up -d
-            sleep 10
-            docker exec $(docker ps -qf "name=app") npm test
+            docker-compose build
       - run:
-          name: Clean Up Docker
-          command: docker-compose down && docker system prune -af
-      - store_artifacts:
-          path: ./logs/
+          name: Run Integration Tests
+          command: |
+            docker-compose up -d && \
+            sleep 10 && \
+            docker-compose exec app npm test && \
+            docker-compose down
 
 workflows:
-  build-and-test:
+  version: 2
+  test_and_build:
     jobs:
-      - test-node
-      - docker-build-and-test:
+      - setup
+      - test:
           requires:
-            - test-node
+            - setup
+      - docker_build_and_test:
+          requires:
+            - test
