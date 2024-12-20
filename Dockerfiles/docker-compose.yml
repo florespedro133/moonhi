@@ -1,0 +1,46 @@
+version: "3"
+
+services:
+  app:
+    build:
+      context: ../
+      dockerfile: Dockerfiles/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - MONGODB_URI=mongodb://mongo:27017/arithmetic_logs?directConnection=true
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_TTL=60
+      - NODE_ENV=production
+      - SSL_CERT_DIR=/certs
+      - PRIVATE_KEY=/certs/private-key.pem
+      - CERTIFICATE=/certs/certificate.pem
+      - CA=/certs/certificate-signing-request.csr
+    depends_on:
+      - mongo
+      - redis
+    networks:
+      - backend
+    volumes:
+      - /home/pedro/ssl-certs:/certs:ro
+
+  mongo:
+    image: mongo:latest
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - backend
+
+  redis:
+    image: redis:latest
+    networks:
+      - backend
+
+volumes:
+  mongo_data:
+
+networks:
+  backend:
+    driver: bridge
