@@ -1,59 +1,57 @@
 version: 2.1
+orbs:
+  node: circleci/node@5
 
 executors:
   node-executor:
     docker:
-      - image: circleci/node:18
+      - image: cimg/node:18 # Imagen actualizada
     working_directory: ~/project
 
 jobs:
-  setup:
+  test-node:
     executor: node-executor
+    environment:
+      JEST_JUNIT_OUTPUT_DIR: ./test-results/
     steps:
       - checkout
+      - node/install-packages:
+          pkg-manager: npm
       - run:
-          name: Install Dependencies
-          command: npm install
-      - persist_to_workspace:
-          root: ~/project
-          paths:
-            - .
-
-  test:
-    executor: node-executor
-    steps:
-      - attach_workspace:
-          at: ~/project
+          name: Install jest-junit
+          command: npm install jest-junit
       - run:
-          name: Run Unit Tests
-          command: npm test
+          name: Run tests
+          command: npm run test --ci --runInBand --reporters=default --reporters=jest-junit
+      - store_test_results:
+          path: ./test-results/
 
-  docker_build:
-    docker:
-      - image: circleci/docker:20.10
+  docker-build-and-test:
+    executor:
+      docker:
+        - image: cimg/base:stable
     steps:
       - checkout
       - setup_remote_docker
       - run:
           name: Build Docker Image
-          command: |
-            docker-compose -f docker-compose.yml build
+          command: docker-compose -f docker-compose.yml build
       - run:
-          name: Test Docker Setup
+          name: Run Tests in Docker
           command: |
-            docker-compose -f docker-compose.yml up -d && \
-            sleep 10 && \
-            docker-compose -f docker-compose.yml logs && \
-            docker-compose -f docker-compose.yml down
+            docker-compose -f docker-compose.yml up -d
+            sleep 10
+            docker exec $(docker ps -qf "name=app") npm test
+      - run:
+          name: Clean Up Docker
+          command: docker-compose down && docker system prune -af
+      - store_artifacts:
+          path: ./logs/
 
 workflows:
-  version: 2
-  test_and_build:
+  build-and-test:
     jobs:
-      - setup
-      - test:
+      - test-node
+      - docker-build-and-test:
           requires:
-            - setup
-      - docker_build:
-          requires:
-            - test
+            - test-node
