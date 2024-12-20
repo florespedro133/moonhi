@@ -1,12 +1,16 @@
-# This config was automatically generated from your source code
-# Stacks detected: deps:node:.,test:jest:
 version: 2.1
 orbs:
   node: circleci/node@5
+
+executors:
+  node-executor:
+    docker:
+      - image: cimg/node:18 # Imagen actualizada
+    working_directory: ~/project
+
 jobs:
   test-node:
-    # Install node dependencies and run tests
-    executor: node/default
+    executor: node-executor
     environment:
       JEST_JUNIT_OUTPUT_DIR: ./test-results/
     steps:
@@ -14,25 +18,40 @@ jobs:
       - node/install-packages:
           pkg-manager: npm
       - run:
+          name: Install jest-junit
           command: npm install jest-junit
       - run:
           name: Run tests
           command: npm run test --ci --runInBand --reporters=default --reporters=jest-junit
       - store_test_results:
           path: ./test-results/
-  deploy:
-    # This is an example deploy job, not actually used by the workflow
-    docker:
-      - image: cimg/base:stable
+
+  docker-build-and-test:
+    executor:
+      docker:
+        - image: cimg/base:stable
     steps:
-      # Replace this with steps to deploy to users
+      - checkout
+      - setup_remote_docker
       - run:
-          name: deploy
-          command: '#e.g. ./deploy.sh'
+          name: Build Docker Image
+          command: docker-compose -f docker-compose.yml build
+      - run:
+          name: Run Tests in Docker
+          command: |
+            docker-compose -f docker-compose.yml up -d
+            sleep 10
+            docker exec $(docker ps -qf "name=app") npm test
+      - run:
+          name: Clean Up Docker
+          command: docker-compose down && docker system prune -af
+      - store_artifacts:
+          path: ./logs/
+
 workflows:
   build-and-test:
     jobs:
       - test-node
-    # - deploy:
-    #     requires:
-    #       - test-node
+      - docker-build-and-test:
+          requires:
+            - test-node
