@@ -50,7 +50,7 @@ jobs:
             cd Dockerfiles && \
             docker-compose up -d && \
             sleep 10 && \
-            docker-compose exec app npm test && \
+            docker-compose exec app npm test --detectOpenHandles && \
             docker-compose down
 
 workflows:
