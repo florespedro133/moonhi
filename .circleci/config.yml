@@ -1,59 +1,66 @@
 version: 2.1
-orbs:
-  node: circleci/node@5
 
 executors:
   node-executor:
     docker:
-      - image: cimg/node:18
+      - image: node:18
     working_directory: ~/project
 
-  docker-executor:
-    docker:
-      - image: cimg/base:stable
-
 jobs:
-  test-node:
+  setup:
     executor: node-executor
-    environment:
-      JEST_JUNIT_OUTPUT_DIR: ./test-results/
     steps:
       - checkout
-      - node/install-packages:
-          pkg-manager: npm
       - run:
-          name: Install jest-junit
-          command: npm install jest-junit
-      - run:
-          name: Run tests
-          command: npm run test --ci --runInBand --reporters=default --reporters=jest-junit
-      - store_test_results:
-          path: ./test-results/
+          name: Install Dependencies
+          command: npm install
+      - persist_to_workspace:
+          root: ~/project
+          paths:
+            - .
 
-  docker-build-and-test:
-    executor: docker-executor
+  test:
+    executor: node-executor
     steps:
-      - checkout
+      - attach_workspace:
+          at: ~/project
+      - run:
+          name: Run Unit Tests
+          command: npm test
+
+  docker_build_and_test:
+    docker:
+      - image: docker:20.10.24
+    steps:
       - setup_remote_docker
+      - checkout
       - run:
           name: Build Docker Image
-          command: docker-compose -f docker-compose.yml build
-      - run:
-          name: Run Tests in Docker
           command: |
-            docker-compose -f docker-compose.yml up -d
-            sleep 10
-            docker exec $(docker ps -qf "name=app") npm test
+            cd Dockerfiles && \
+            docker-compose build
       - run:
-          name: Clean Up Docker
-          command: docker-compose down && docker system prune -af
-      - store_artifacts:
-          path: ./logs/
+          name: Install Development Dependencies in Docker
+          command: |
+            cd Dockerfiles && \
+            docker-compose run --rm app npm install --only=development
+      - run:
+          name: Run Integration Tests
+          command: |
+            cd Dockerfiles && \
+            docker-compose up -d && \
+            sleep 10 && \
+            docker-compose exec app npm test --detectOpenHandles && \
+            docker-compose down
 
 workflows:
-  build-and-test:
+  version: 2
+  test_and_build:
     jobs:
-      - test-node
-      - docker-build-and-test:
+      - setup
+      - test:
           requires:
-            - test-node
+            - setup
+      - docker_build_and_test:
+          requires:
+            - test
