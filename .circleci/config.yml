@@ -5,7 +5,7 @@ orbs:
 executors:
   node-executor:
     docker:
-      - image: cimg/node:18
+      - image: cimg/node:20
     working_directory: ~/project
 
   docker-executor:
