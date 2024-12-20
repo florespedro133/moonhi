@@ -43,6 +43,7 @@ jobs:
           name: Run Integration Tests
           command: |
             cd Dockerfiles && \
+            docker-compose run --rm app npm install
             docker-compose up -d && \
             sleep 10 && \
             docker-compose exec app npm test && \
